@@ -6,10 +6,10 @@ import { ProgressBar } from '../components/ProgressBar';
 import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
 
 const CLIENTE_LEVEL = 'clientePlanta';
-// Sequência completa de níveis de drill-down: hierarquia de gestores, depois
-// cliente/planta-obra. Depois do último nível, mostramos as máquinas em si.
-const FULL_LEVELS = ['gerente', 'coordenador', 'supervisor', 'encarregado', CLIENTE_LEVEL];
+// Sequência completa: Grupo → Gerente → Coordenador → Supervisor → Encarregado → Cliente/Planta → Máquina
+const FULL_LEVELS = ['grupo', 'gerente', 'coordenador', 'supervisor', 'encarregado', CLIENTE_LEVEL];
 const LEVEL_LABELS = {
+  grupo: 'Grupo',
   gerente: 'Gerente',
   coordenador: 'Coordenador',
   supervisor: 'Supervisor',
@@ -39,6 +39,7 @@ export default function Dashboard() {
         const clientePlanta = [f.clienteCT, f.plantaObra].filter(Boolean).join(' · ') || 'Cliente não informado';
         return {
           ...f,
+          grupo: u.grupo || 'Campo',
           gerente: u.gerente,
           coordenador: u.coordenador,
           supervisor: u.supervisor,

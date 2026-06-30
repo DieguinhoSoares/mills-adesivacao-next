@@ -9,6 +9,7 @@ import ValidacaoAnalista from './pages/ValidacaoAnalista';
 import Atribuicao from './pages/Atribuicao';
 import Dashboard from './pages/Dashboard';
 import Frotas from './pages/Frotas';
+import Links from './pages/Links';
 import Login from './pages/Login';
 
 function AreaInterna({ children }) {
@@ -41,6 +42,7 @@ function Nav() {
       <Link to="/frotas" style={linkStyle}>Frotas</Link>
       <Link to="/atribuicao" style={linkStyle}>Atribuição</Link>
       <Link to="/validacao" style={linkStyle}>Validação</Link>
+      <Link to="/links" style={linkStyle}>Links</Link>
     </div>
   );
 }
@@ -87,6 +89,15 @@ export default function App() {
             <>
               <Nav />
               <AreaInterna>{(user) => <ValidacaoAnalista usuarioAtual={user.email} />}</AreaInterna>
+            </>
+          }
+        />
+        <Route
+          path="/links"
+          element={
+            <>
+              <Nav />
+              <AreaInterna>{() => <Links />}</AreaInterna>
             </>
           }
         />
