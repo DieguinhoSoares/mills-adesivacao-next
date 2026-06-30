@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Fotos de evidência: qualquer um com o link da frota pode subir uma
+    // vez (write), ninguém pode sobrescrever ou apagar evidência já enviada
+    // exceto o analista (correção de erro).
+    match /evidencias/{frotaId}/{fileName} {
+      allow read: if true;
+      allow create: if request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow update, delete: if request.auth != null && request.auth.token.role == 'analista';
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

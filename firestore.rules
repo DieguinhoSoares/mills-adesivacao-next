@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// Modelo de acesso:
+// - "unidades" e "frotas_next" são lidas pelo CLIENT diretamente, mas a
+//   filtragem por token (apontamento e validação do gestor) acontece via
+//   query (where tokenApontamento == X). O Firestore não permite "esconder"
+//   documentos de uma coleção por completo sem Auth real, então a real
+//   barreira de segurança aqui é: tokens são UUIDv4 (não enumeráveis) e a
+//   ESCRITA é restrita a transições de status válidas, nunca leitura livre
+//   de campos sensíveis de outras unidades.
+// - Para uma segunda camada de segurança mais forte, mover a resolução de
+//   token para uma Cloud Function (ver functions/resolveToken.js) que usa
+//   o Admin SDK e nunca expõe a query de "unidades" inteira ao client.
+//   Recomendado antes de ir para produção.
+// - Analista de frotas usa login normal (Firebase Auth) com custom claim
+//   role = 'analista'.
+
+function isAnalista() {
+  return request.auth != null && request.auth.token.role == 'analista';
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /unidades/{unidadeId} {
+      // Leitura liberada para resolver token no client (ver nota acima).
+      // Em produção, considerar restringir e mover para Cloud Function.
+      allow read: if true;
+      allow create, update: if isAnalista();
+      allow delete: if false;
+    }
+
+    match /frotas_next/{frotaId} {
+      allow read: if true;
+
+      // Apontamento (gestor ou técnico via link): só pode alterar os
+      // campos de apontamento, e só quando o status atual é 'pendente'.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'fotoEvidenciaURL', 'apontadoPor', 'observacaoApontamento', 'dataApontamento'])
+                    && resource.data.status == 'pendente';
+
+      // Validação intermediária do gestor.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'validadoGestorPor', 'dataValidacaoGestor'])
+                    && resource.data.status == 'pendente_validacao_gestor';
+
+      // Rejeição feita pelo gestor (volta a frota para 'pendente').
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'motivoRejeicao', 'rejeitadoPor', 'dataRejeicao'])
+                    && resource.data.status == 'pendente_validacao_gestor'
+                    && request.resource.data.status == 'pendente';
+
+      // Validação final e atribuição/reatribuição: só analista autenticado.
+      allow update: if isAnalista();
+      allow create, delete: if isAnalista();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

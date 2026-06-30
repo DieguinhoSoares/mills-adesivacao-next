@@ -1,0 +1,62 @@
+:root {
+  --surface-2: #ffffff;
+  --surface-1: #f7f5ee;
+  --surface-0: #f1efe8;
+  --text-primary: #1a1a18;
+  --text-secondary: #5f5e5a;
+  --text-muted: #888780;
+  --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.18);
+  --radius: 8px;
+
+  --bg-accent: #fde8dc;
+  --text-accent: #c24003;
+  --fill-accent: #f37021;
+  --on-accent: #ffffff;
+
+  --bg-success: #eaf3de;
+  --text-success: #3b6d11;
+  --fill-success: #639922;
+  --on-success: #ffffff;
+
+  --border-danger: #f09595;
+  --text-danger: #a32d2d;
+
+  --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--surface-0);
+  color: var(--text-primary);
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 14px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border-strong);
+  padding: 8px 10px;
+}
+
+button {
+  background: transparent;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
