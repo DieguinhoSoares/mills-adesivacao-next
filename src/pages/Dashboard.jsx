@@ -61,8 +61,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+    <div className="page-container" style={{ maxWidth: 760, margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
         <MetricCard label="Frotas NEXT" value={frotas.length} />
         <MetricCard label="Apontado" value={totalAll ? `${Math.round((apontAll / totalAll) * 100)}%` : '0%'} color="var(--text-accent)" />
         <MetricCard label="Validado" value={totalAll ? `${Math.round((validAll / totalAll) * 100)}%` : '0%'} color="var(--text-success)" />

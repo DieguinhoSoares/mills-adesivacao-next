@@ -67,7 +67,7 @@ export default function Apontamento() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '0 auto', padding: '1rem' }}>
+    <div className="page-container" style={{ maxWidth: 420, margin: '0 auto', padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>Apontamento de adesivação</p>
@@ -116,7 +116,7 @@ export default function Apontamento() {
 
       {frotaAberta && (
         <div style={{ position: 'relative', minHeight: 320, background: 'rgba(0,0,0,0.45)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-          <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '88%' }}>
+          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '88%' }}>
             <p style={{ fontSize: 15, fontWeight: 500, margin: '0 0 4px' }}>{frotaAberta.idNext}</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
               Interno {frotaAberta.numeroInterno} · Série {frotaAberta.numeroSerie}

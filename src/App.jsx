@@ -8,6 +8,7 @@ import ValidacaoGestor from './pages/ValidacaoGestor';
 import ValidacaoAnalista from './pages/ValidacaoAnalista';
 import Atribuicao from './pages/Atribuicao';
 import Dashboard from './pages/Dashboard';
+import Frotas from './pages/Frotas';
 import Login from './pages/Login';
 
 function AreaInterna({ children }) {
@@ -21,11 +22,25 @@ function AreaInterna({ children }) {
 }
 
 function Nav() {
+  const linkStyle = { fontWeight: 500 };
   return (
-    <div style={{ display: 'flex', gap: 16, padding: '12px 16px', borderBottom: '0.5px solid var(--border)', fontSize: 13 }}>
-      <Link to="/">Dashboard</Link>
-      <Link to="/atribuicao">Atribuição</Link>
-      <Link to="/validacao">Validação</Link>
+    <div
+      className="nav-bar"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 20,
+        padding: '14px 20px',
+        borderBottom: '0.5px solid var(--border)',
+        fontSize: 13,
+        background: 'var(--surface-2)',
+      }}
+    >
+      <span style={{ color: 'var(--mills-verde-escuro)', fontWeight: 700, fontSize: 14, letterSpacing: -0.3 }}>mills</span>
+      <Link to="/" style={linkStyle}>Dashboard</Link>
+      <Link to="/frotas" style={linkStyle}>Frotas</Link>
+      <Link to="/atribuicao" style={linkStyle}>Atribuição</Link>
+      <Link to="/validacao" style={linkStyle}>Validação</Link>
     </div>
   );
 }
@@ -45,6 +60,15 @@ export default function App() {
             <>
               <Nav />
               <AreaInterna>{() => <Dashboard />}</AreaInterna>
+            </>
+          }
+        />
+        <Route
+          path="/frotas"
+          element={
+            <>
+              <Nav />
+              <AreaInterna>{() => <Frotas />}</AreaInterna>
             </>
           }
         />

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useFrotas } from '../hooks/useFrotas';
+import { Lightbox } from '../components/Lightbox';
 import { STATUS } from '../utils/statusFlow';
 
 // Acesso via link fixo: /validacao-gestor/:token
@@ -12,6 +13,7 @@ export default function ValidacaoGestor() {
   const [unidade, setUnidade] = useState(null);
   const [erro, setErro] = useState(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState({});
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
   const { frotas, validarGestor, rejeitar } = useFrotas();
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function ValidacaoGestor() {
   if (!unidade) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
 
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto', padding: '1rem' }}>
+    <div className="page-container" style={{ maxWidth: 560, margin: '0 auto', padding: '1rem' }}>
       <p style={{ fontSize: 16, fontWeight: 500, margin: '0 0 4px' }}>Confirmar fotos do técnico</p>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' }}>{unidade.unidade}</p>
 
@@ -46,12 +48,31 @@ export default function ValidacaoGestor() {
         {fila.map((f) => (
           <div key={f.id} style={{ border: '0.5px solid var(--border)', borderRadius: 12, padding: '1rem' }}>
             <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
-              {f.idNext} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· interno {f.numeroInterno}</span>
+              {f.idNext} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· interno {f.numeroInterno} · série {f.numeroSerie}</span>
             </p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 10px' }}>Apontado por {f.apontadoPor}</p>
-            {f.fotoEvidenciaURL && (
-              <img src={f.fotoEvidenciaURL} alt={`Evidência ${f.idNext}`} style={{ width: '100%', borderRadius: 'var(--radius)', marginBottom: 10 }} />
+
+            {/* Espaço reservado, grande, para o gestor realmente conseguir
+                examinar a evidência antes de confirmar — com zoom ao clicar. */}
+            {f.fotoEvidenciaURL ? (
+              <img
+                src={f.fotoEvidenciaURL}
+                alt={`Evidência ${f.idNext}`}
+                onClick={() => setFotoAmpliada(f.fotoEvidenciaURL)}
+                style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 'var(--radius)', marginBottom: 10, cursor: 'zoom-in' }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: 160, borderRadius: 'var(--radius)', background: 'var(--surface-1)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                Sem foto
+              </div>
             )}
+
+            {f.observacaoApontamento && (
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px', fontStyle: 'italic' }}>
+                "{f.observacaoApontamento}"
+              </p>
+            )}
+
             <input
               type="text"
               placeholder="Motivo da rejeição (se aplicável)"
@@ -82,6 +103,8 @@ export default function ValidacaoGestor() {
           </div>
         ))}
       </div>
+
+      <Lightbox src={fotoAmpliada} alt="Evidência ampliada" onClose={() => setFotoAmpliada(null)} />
     </div>
   );
 }

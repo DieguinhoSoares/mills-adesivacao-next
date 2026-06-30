@@ -78,7 +78,7 @@ export default function Atribuicao({ usuarioAtual }) {
   const isReatribuicao = frotaSelecionada && frotaSelecionada.status !== STATUS.AGUARDANDO_ATRIBUICAO;
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '1rem' }}>
+    <div className="page-container" style={{ maxWidth: 720, margin: '0 auto', padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
           {mostrarTodas ? 'Todas as frotas' : 'Aguardando atribuição'} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({lista.length})</span>
@@ -93,9 +93,12 @@ export default function Atribuicao({ usuarioAtual }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {lista.map((f) => (
-          <div key={f.id} style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div key={f.id} className="card-row" style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· {STATUS_LABEL[f.status]}</span></p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                Interno {f.numeroInterno || '—'} · Série {f.numeroSerie || '—'}
+              </p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>{f.clienteCT || 'Cliente não informado'} · {f.plantaObra || 'Planta/Obra não informada'}</p>
             </div>
             <button onClick={() => abrirAtribuicao(f)}>{f.status === STATUS.AGUARDANDO_ATRIBUICAO ? 'Atribuir' : 'Reatribuir'}</button>
@@ -106,7 +109,7 @@ export default function Atribuicao({ usuarioAtual }) {
 
       {frotaSelecionada && (
         <div style={{ position: 'relative', minHeight: 380, background: 'rgba(0,0,0,0.45)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-          <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '90%', maxWidth: 480 }}>
+          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '90%', maxWidth: 480 }}>
             <p style={{ fontSize: 15, fontWeight: 500, margin: '0 0 4px' }}>{frotaSelecionada.idNext}</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>{frotaSelecionada.clienteCT} · {frotaSelecionada.plantaObra}</p>
 
