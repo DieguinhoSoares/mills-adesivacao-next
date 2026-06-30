@@ -1,23 +1,7 @@
 {
-  "name": "mills-adesivacao-next",
-  "private": true,
-  "version": "0.1.0",
+  "name": "import-mills-adesivacao-next-v2",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "import:firestore": "node scripts/import_to_firestore.js"
-  },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^6.26.0",
-    "firebase": "^10.13.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0",
     "firebase-admin": "^12.5.0"
   }
 }
