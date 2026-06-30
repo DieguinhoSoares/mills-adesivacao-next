@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useUnidades } from '../hooks/useUnidades';
+import { useFrotas } from '../hooks/useFrotas';
 
 const BASE_URL = import.meta.env.PROD
   ? 'https://dieguinhosoares.github.io/mills-adesivacao-next'
-  : window.location.origin + (import.meta.env.PROD ? '/mills-adesivacao-next' : '');
+  : window.location.origin;
 
 function linkApontamento(token) {
   return `${BASE_URL}/apontamento/${token}`;
@@ -40,26 +41,35 @@ function CopiarBotao({ texto }) {
 }
 
 export default function Links() {
-  const { unidades, loading } = useUnidades();
+  const { unidades, loading: loadingUnidades } = useUnidades();
+  const { frotas, loading: loadingFrotas } = useFrotas();
   const [busca, setBusca] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
 
+  // Conjunto de unidadeIds que têm pelo menos 1 frota NEXT vinculada
+  const unidadesComFrotas = useMemo(() => {
+    const ids = new Set();
+    frotas.forEach(f => { if (f.unidadeId) ids.add(f.unidadeId); });
+    return ids;
+  }, [frotas]);
+
   const lista = useMemo(() => {
     return unidades
+      .filter(u => unidadesComFrotas.has(u.id)) // só unidades com frotas NEXT
       .filter(u => !filtroGrupo || u.grupo === filtroGrupo)
       .filter(u => !busca || u.unidade.toLowerCase().includes(busca.toLowerCase()) ||
         [u.gerente, u.coordenador, u.supervisor, u.encarregado]
           .some(v => v && v.toLowerCase().includes(busca.toLowerCase())))
       .sort((a, b) => a.unidade.localeCompare(b.unidade));
-  }, [unidades, busca, filtroGrupo]);
+  }, [unidades, unidadesComFrotas, busca, filtroGrupo]);
 
-  if (loading) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
+  if (loadingUnidades || loadingFrotas) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
 
   return (
     <div className="page-container" style={{ maxWidth: 880, margin: '0 auto', padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
-          Links de apontamento <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({lista.length} unidades)</span>
+          Links de apontamento <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({lista.length} unidades com frotas NEXT)</span>
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select value={filtroGrupo} onChange={e => setFiltroGrupo(e.target.value)}>
