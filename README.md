@@ -1,116 +1,179 @@
-# mills-adesivacao-next
+import { useMemo, useState } from 'react';
+import { useFrotas } from '../hooks/useFrotas';
+import { useUnidades } from '../hooks/useUnidades';
+import { MetricCard } from '../components/MetricCard';
+import { ProgressBar } from '../components/ProgressBar';
+import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
 
-Painel de acompanhamento de adesivação da frota Mills oriunda da NEXT.
+const CLIENTE_LEVEL = 'clientePlanta';
+// Sequência completa: Grupo → Gerente → Coordenador → Supervisor → Encarregado → Cliente/Planta → Máquina
+const FULL_LEVELS = ['grupo', 'gerente', 'coordenador', 'supervisor', 'encarregado', CLIENTE_LEVEL];
+const LEVEL_LABELS = {
+  grupo: 'Grupo',
+  gerente: 'Gerente',
+  coordenador: 'Coordenador',
+  supervisor: 'Supervisor',
+  encarregado: 'Encarregado',
+  [CLIENTE_LEVEL]: 'Cliente / Planta-Obra',
+};
 
-## Stack
-React 19 + Vite, hospedado no GitHub Pages. Backend no Firebase (Firestore + Auth) e fotos de evidência no Cloudinary (mesmo padrão do `mills-doc-portal`) — evita exigir o plano pago do Firebase Storage.
+function isApontado(status) {
+  return status !== STATUS.AGUARDANDO_ATRIBUICAO && status !== STATUS.PENDENTE;
+}
+function isValidado(status) {
+  return status === STATUS.ADESIVADO;
+}
 
-## Fluxo de status de uma frota
-```
-aguardando_atribuicao -> pendente -> [pendente_validacao_gestor] -> pendente_validacao_analista -> adesivado
-```
-A etapa `pendente_validacao_gestor` só existe para unidades onde
-`responsavelApontamento = 'tecnico'` (ver `src/utils/statusFlow.js`).
+export default function Dashboard() {
+  const { frotas, loading: loadingFrotas } = useFrotas();
+  const { unidades, loading: loadingUnidades } = useUnidades();
+  const [path, setPath] = useState([]);
 
-## Telas
-- `/apontamento/:token` — gestor ou técnico aponta a adesivação com foto (sem login, link fixo por unidade).
-- `/validacao-gestor/:token` — gestor confirma fotos enviadas pelo técnico (sem login, link fixo).
-- `/validacao` — fila de validação final do analista (login obrigatório).
-- `/atribuicao` — analista atribui ou reatribui a unidade responsável por uma frota (login obrigatório).
-- `/` — dashboard de progresso em cascata (Gerente → Coordenador → Supervisor → Encarregado), login obrigatório.
+  const unidadeById = useMemo(() => Object.fromEntries(unidades.map((u) => [u.id, u])), [unidades]);
 
----
+  const enriquecidas = useMemo(() => {
+    return frotas
+      .filter((f) => f.unidadeId)
+      .map((f) => {
+        const u = unidadeById[f.unidadeId] || {};
+        const clientePlanta = [f.clienteCT, f.plantaObra].filter(Boolean).join(' · ') || 'Cliente não informado';
+        return {
+          ...f,
+          grupo: u.grupo || 'Campo',
+          gerente: u.gerente,
+          coordenador: u.coordenador,
+          supervisor: u.supervisor,
+          encarregado: u.encarregado,
+          clientePlanta,
+        };
+      });
+  }, [frotas, unidadeById]);
 
-## Passo a passo de setup (local, sem Codespace)
+  const semVinculo = frotas.filter((f) => f.status === STATUS.AGUARDANDO_ATRIBUICAO).length;
 
-### 1. Criar o repositório no GitHub
-```bash
-cd mills-adesivacao-next
-git init
-git add .
-git commit -m "Scaffold inicial"
-```
-No GitHub, crie um repositório novo (público ou privado) chamado `mills-adesivacao-next`, **sem** README/gitignore (já temos os nossos). Depois:
-```bash
-git remote add origin https://github.com/SEU_USUARIO/mills-adesivacao-next.git
-git branch -M main
-git push -u origin main
-```
+  function matchPath(f) {
+    return FULL_LEVELS.slice(0, path.length).every((lv, i) => f[lv] === path[i]);
+  }
 
-### 2. Criar o projeto Firebase (novo e dedicado a este app)
-No [Console Firebase](https://console.firebase.google.com):
-1. **Criar projeto novo** — não reaproveitar o projeto do `mills-logistica`. Isso mantém os dois sistemas com Firestore e Auth totalmente isolados: nenhum risco de uma regra de segurança nova sobrescrever ou derrubar o acesso do que já está em produção.
-2. Ativar **Firestore Database** (modo produção).
-3. Ativar **Authentication** → método Email/senha (para o analista logar).
-4. Em *Configurações do projeto* → *Geral* → *Seus apps* → criar um app Web. Copiar as credenciais (`apiKey`, `authDomain`, etc).
+  function aggregate(level) {
+    const map = new Map();
+    enriquecidas.forEach((f) => {
+      if (!matchPath(f)) return;
+      const key = f[level];
+      if (!key || key === '-') return;
+      if (!map.has(key)) map.set(key, { name: key, total: 0, apontado: 0, validado: 0 });
+      const e = map.get(key);
+      e.total += 1;
+      if (isApontado(f.status)) e.apontado += 1;
+      if (isValidado(f.status)) e.validado += 1;
+    });
+    return Array.from(map.values()).sort((a, b) => b.validado / b.total - a.validado / a.total);
+  }
 
-(Não usamos o Firebase Storage neste projeto — hoje ele exige plano pago mesmo em uso baixo. As fotos de evidência vão para o Cloudinary, configurado no passo 3.)
+  const levelIdx = path.length;
+  const dentroDaHierarquia = levelIdx < FULL_LEVELS.length;
+  const level = dentroDaHierarquia ? FULL_LEVELS[levelIdx] : null;
+  const rows = dentroDaHierarquia ? aggregate(level) : [];
 
-### 3. Criar a conta Cloudinary (gratuita) para as fotos
-1. Acesse https://cloudinary.com e crie uma conta gratuita (mesmo serviço já usado no `mills-doc-portal`).
-2. No painel, anote o **Cloud name** (aparece no topo do dashboard).
-3. Vá em **Settings → Upload → Upload presets → Add upload preset**.
-4. Defina **Signing Mode = Unsigned** (permite upload direto do navegador sem expor segredo).
-5. Salve e anote o **nome do preset** criado.
+  // Último nível: lista as máquinas individuais (não agregadas).
+  const maquinas = !dentroDaHierarquia ? enriquecidas.filter(matchPath) : [];
 
-### 4. Configurar variáveis de ambiente locais
-```bash
-cp .env.example .env.local
-```
-Preencher `.env.local` com as credenciais do Firebase (passo 2) e do Cloudinary (passo 3). Esse arquivo nunca é commitado (já está no `.gitignore`).
+  const totalAll = dentroDaHierarquia ? rows.reduce((s, r) => s + r.total, 0) : maquinas.length;
+  const apontAll = dentroDaHierarquia ? rows.reduce((s, r) => s + r.apontado, 0) : maquinas.filter((f) => isApontado(f.status)).length;
+  const validAll = dentroDaHierarquia ? rows.reduce((s, r) => s + r.validado, 0) : maquinas.filter((f) => isValidado(f.status)).length;
 
-### 5. Rodar localmente
-```bash
-npm install
-npm run dev
-```
-Abre em `http://localhost:5173`.
+  if (loadingFrotas || loadingUnidades) {
+    return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
+  }
 
-### 6. Subir as regras de segurança do Firestore
-Instalar a CLI do Firebase (se ainda não tiver):
-```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add   # selecionar o projeto criado no passo 2
-firebase deploy --only firestore:rules
-```
+  return (
+    <div className="page-container" style={{ maxWidth: 760, margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+        <MetricCard label="Frotas NEXT" value={totalAll} />
+        <MetricCard label="Apontado" value={totalAll ? `${Math.round((apontAll / totalAll) * 100)}%` : '0%'} color="var(--text-accent)" />
+        <MetricCard label="Validado" value={totalAll ? `${Math.round((validAll / totalAll) * 100)}%` : '0%'} color="var(--text-success)" />
+        <MetricCard label="Aguardando atribuição" value={semVinculo} color="var(--text-muted)" />
+      </div>
 
-### 7. Configurar o GitHub Pages
-No repositório do GitHub: **Settings → Pages → Source → GitHub Actions** (não "Deploy from a branch" — o workflow já incluso em `.github/workflows/deploy.yml` cuida disso).
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          <span style={{ cursor: 'pointer', color: 'var(--text-accent)' }} onClick={() => setPath([])}>
+            Todos
+          </span>
+          {path.map((p, i) => (
+            <span key={p}>
+              {' › '}
+              <span style={{ cursor: 'pointer', color: 'var(--text-accent)' }} onClick={() => setPath(path.slice(0, i + 1))}>
+                {p}
+              </span>
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: '#85B7EB' }} /> Apontado
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: '#1D9E75' }} /> Validado
+          </span>
+        </div>
+      </div>
 
-### 8. Configurar os secrets do repositório
-**Settings → Secrets and variables → Actions → New repository secret**, um para cada:
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
-- `VITE_CLOUDINARY_CLOUD_NAME`
-- `VITE_CLOUDINARY_UPLOAD_PRESET`
-
-(os mesmos valores do `.env.local`)
-
-### 9. Deploy
-Qualquer `git push` na branch `main` dispara o build e publica automaticamente em:
-```
-https://SEU_USUARIO.github.io/mills-adesivacao-next/
-```
-
-### 10. Criar o usuário analista
-No Console Firebase → Authentication → Users → Add user (e-mail + senha). Depois, para liberar permissão de escrita nas regras, é preciso setar a custom claim `role: 'analista'` nesse usuário — ver pendência abaixo.
-
-### 11. Importar a base inicial
-```bash
-# Service Account: Console Firebase > Configurações do projeto > Contas de serviço > Gerar nova chave
-GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json \
-  node scripts/import_to_firestore.js ./unidades.json ./frotas_next.json
-```
-(coloque `unidades.json` e `frotas_next.json`, gerados pelo `merge_adesivacao_next.py`, na raiz do projeto antes de rodar)
-
----
-
-## Pendências antes de produção
-- **Custom claim `role: 'analista'`** — sem ela, as regras do Firestore não liberam escrita pro analista. Rodar um script simples com o Admin SDK (`auth.setCustomUserClaims(uid, { role: 'analista' })`) ou criar uma Cloud Function `onCreate` que faz isso automaticamente para e-mails `@mills.com.br`.
-- **Resolução de token via Cloud Function** — hoje o client consulta `unidades` diretamente filtrando por token. Funciona para uso interno, mas para reduzir a superfície de leitura sem Auth, o ideal é mover essa resolução para uma Cloud Function com Admin SDK antes de expor os links publicamente.
-- **17 pendências de de-para** (`pendencias_de_para.csv`) não bloqueiam nada — essas frotas entram com status `aguardando_atribuicao` e ficam disponíveis para atribuição manual em `/atribuicao`.
-- Checar a exposição da chave da API do CallMeBot no `mills-logistica` (pendência já identificada anteriormente, em projeto Firebase separado deste).
+      {dentroDaHierarquia ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map((r) => {
+            const pctApontado = r.total ? Math.round((r.apontado / r.total) * 100) : 0;
+            const pctValidado = r.total ? Math.round((r.validado / r.total) * 100) : 0;
+            return (
+              <div
+                key={r.name}
+                onClick={() => setPath([...path, r.name])}
+                style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>
+                    {r.name} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· {LEVEL_LABELS[level]}</span>
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    {r.total} máquinas · {pctValidado}% validado
+                  </span>
+                </div>
+                <ProgressBar pctApontado={pctApontado} pctValidado={pctValidado} />
+              </div>
+            );
+          })}
+          {rows.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma frota nesse recorte.</p>}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+            Máquinas de {path[path.length - 1]}:
+          </p>
+          {maquinas.map((f) => (
+            <div key={f.id} className="card-row" style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  Interno {f.numeroInterno || '—'} · Série {f.numeroSerie || '—'}
+                </p>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  padding: '3px 8px',
+                  borderRadius: 'var(--radius)',
+                  background: isValidado(f.status) ? 'var(--bg-success)' : isApontado(f.status) ? 'var(--bg-accent)' : 'var(--surface-1)',
+                  color: isValidado(f.status) ? 'var(--text-success)' : isApontado(f.status) ? 'var(--text-accent)' : 'var(--text-secondary)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {STATUS_LABEL[f.status]}
+              </span>
+            </div>
+          ))}
+          {maquinas.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma máquina nesse recorte.</p>}
+        </div>
+      )}
+    </div>
+  );
+}

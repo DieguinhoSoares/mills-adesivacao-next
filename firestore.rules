@@ -1,62 +1,169 @@
-rules_version = '2';
+import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
+import { uploadEvidencia } from '../cloudinary';
+import { useFrotas } from '../hooks/useFrotas';
+import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
 
-// Modelo de acesso:
-// - "unidades" e "frotas_next" são lidas pelo CLIENT diretamente, mas a
-//   filtragem por token (apontamento e validação do gestor) acontece via
-//   query (where tokenApontamento == X). O Firestore não permite "esconder"
-//   documentos de uma coleção por completo sem Auth real, então a real
-//   barreira de segurança aqui é: tokens são UUIDv4 (não enumeráveis) e a
-//   ESCRITA é restrita a transições de status válidas, nunca leitura livre
-//   de campos sensíveis de outras unidades.
-// - Para uma segunda camada de segurança mais forte, mover a resolução de
-//   token para uma Cloud Function (ver functions/resolveToken.js) que usa
-//   o Admin SDK e nunca expõe a query de "unidades" inteira ao client.
-//   Recomendado antes de ir para produção.
-// - Analista de frotas usa login normal (Firebase Auth) com custom claim
-//   role = 'analista'.
+// Acesso via link fixo: /apontamento/:token
+// O token identifica a unidade (e implicitamente quem deve apontar:
+// técnico ou gestor, conforme unidades.responsavelApontamento).
+// Sem login — a segurança vem do token ser um UUID não adivinhável,
+// combinado com as Firestore Rules restringindo escrita por essa via.
+export default function Apontamento() {
+  const { token } = useParams();
+  const [unidade, setUnidade] = useState(null);
+  const [erro, setErro] = useState(null);
+  const [busca, setBusca] = useState('');
+  const [fotoSelecionada, setFotoSelecionada] = useState(null);
+  const [frotaAberta, setFrotaAberta] = useState(null);
+  const [observacao, setObservacao] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const { frotas, apontar } = useFrotas();
 
-function isAnalista() {
-  return request.auth != null && request.auth.token.role == 'analista';
-}
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    match /unidades/{unidadeId} {
-      // Leitura liberada para resolver token no client (ver nota acima).
-      // Em produção, considerar restringir e mover para Cloud Function.
-      allow read: if true;
-      allow create, update: if isAnalista();
-      allow delete: if false;
+  useEffect(() => {
+    async function resolverToken() {
+      const q = query(collection(db, 'unidades'), where('tokenApontamento', '==', token));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        setErro('Link inválido ou expirado.');
+        return;
+      }
+      setUnidade({ id: snap.docs[0].id, ...snap.docs[0].data() });
     }
+    resolverToken();
+  }, [token]);
 
-    match /frotas_next/{frotaId} {
-      allow read: if true;
+  const minhasFrotas = useMemo(() => {
+    if (!unidade) return [];
+    return frotas
+      .filter((f) => f.unidadeId === unidade.id)
+      .filter((f) => !busca || `${f.idNext}${f.numeroInterno}${f.numeroSerie}`.toLowerCase().includes(busca.toLowerCase()));
+  }, [frotas, unidade, busca]);
 
-      // Apontamento (gestor ou técnico via link): só pode alterar os
-      // campos de apontamento, e só quando o status atual é 'pendente'.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'fotoEvidenciaURL', 'apontadoPor', 'observacaoApontamento', 'dataApontamento'])
-                    && resource.data.status == 'pendente';
+  const feitas = minhasFrotas.filter((f) => f.status !== STATUS.PENDENTE).length;
 
-      // Validação intermediária do gestor.
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'validadoGestorPor', 'dataValidacaoGestor'])
-                    && resource.data.status == 'pendente_validacao_gestor';
+  if (erro) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-danger)' }}>{erro}</p>;
+  if (!unidade) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
 
-      // Rejeição feita pelo gestor (volta a frota para 'pendente').
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'motivoRejeicao', 'rejeitadoPor', 'dataRejeicao'])
-                    && resource.data.status == 'pendente_validacao_gestor'
-                    && request.resource.data.status == 'pendente';
-
-      // Validação final e atribuição/reatribuição: só analista autenticado.
-      allow update: if isAnalista();
-      allow create, delete: if isAnalista();
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+  async function confirmarApontamento() {
+    if (!fotoSelecionada || !frotaAberta) return;
+    setEnviando(true);
+    try {
+      const fotoURL = await uploadEvidencia(fotoSelecionada, { frotaId: frotaAberta.id });
+      await apontar(frotaAberta.id, {
+        fotoURL,
+        apontadoPor: unidade.unidade,
+        observacao,
+        unidade,
+      });
+      setFrotaAberta(null);
+      setFotoSelecionada(null);
+      setObservacao('');
+    } finally {
+      setEnviando(false);
     }
   }
+
+  return (
+    <div className="page-container" style={{ maxWidth: 420, margin: '0 auto', padding: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>Apontamento de adesivação</p>
+          <p style={{ fontSize: 16, fontWeight: 500, margin: 0 }}>{unidade.unidade}</p>
+        </div>
+        <span style={{ background: 'var(--bg-accent)', color: 'var(--text-accent)', fontSize: 12, padding: '4px 10px', borderRadius: 'var(--radius)' }}>
+          {feitas} de {minhasFrotas.length} feitas
+        </span>
+      </div>
+
+      <input
+        type="text"
+        placeholder="Buscar nº interno, série ou ID Next"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        style={{ width: '100%', marginBottom: 12 }}
+      />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {minhasFrotas.map((f) => {
+          const reprovado = f.status === STATUS.PENDENTE && f.motivoRejeicao;
+          return (
+          <div
+            key={f.id}
+            onClick={() => f.status === STATUS.PENDENTE && setFrotaAberta(f)}
+            style={{
+              border: `0.5px solid ${reprovado ? 'var(--border-danger)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius)',
+              padding: '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              cursor: f.status === STATUS.PENDENTE ? 'pointer' : 'default',
+              background: reprovado ? '#fff5f5' : 'transparent',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  Interno {f.numeroInterno} · Série {f.numeroSerie}
+                </p>
+              </div>
+              <span style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 'var(--radius)',
+                background: reprovado ? '#fde8e8' : 'var(--surface-1)',
+                color: reprovado ? 'var(--text-danger)' : 'var(--text-secondary)',
+              }}>
+                {reprovado ? '⚠ Reprovado' : STATUS_LABEL[f.status]}
+              </span>
+            </div>
+            {reprovado && (
+              <p style={{ fontSize: 12, color: 'var(--text-danger)', margin: 0, fontStyle: 'italic' }}>
+                Motivo: {f.motivoRejeicao} — toque para reenviar
+              </p>
+            )}
+          </div>
+          );
+        })}
+      </div>
+
+      {frotaAberta && (
+        <div style={{ position: 'relative', minHeight: 320, background: 'rgba(0,0,0,0.45)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
+          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '88%' }}>
+            <p style={{ fontSize: 15, fontWeight: 500, margin: '0 0 4px' }}>{frotaAberta.idNext}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+              Interno {frotaAberta.numeroInterno} · Série {frotaAberta.numeroSerie}
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => setFotoSelecionada(e.target.files?.[0] || null)}
+              style={{ marginBottom: 10 }}
+            />
+            <textarea
+              placeholder="Observação (opcional)"
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              style={{ width: '100%', minHeight: 60, marginBottom: 12 }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ flex: 1 }} onClick={() => setFrotaAberta(null)}>
+                Cancelar
+              </button>
+              <button
+                style={{ flex: 1, background: 'var(--fill-accent)', color: 'var(--on-accent)', border: 'none' }}
+                disabled={!fotoSelecionada || enviando}
+                onClick={confirmarApontamento}
+              >
+                {enviando ? 'Enviando…' : 'Confirmar adesivação'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
