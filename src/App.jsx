@@ -10,6 +10,7 @@ import Atribuicao from './pages/Atribuicao';
 import Dashboard from './pages/Dashboard';
 import Frotas from './pages/Frotas';
 import Links from './pages/Links';
+import Demo from './pages/Demo';
 import Login from './pages/Login';
 
 function AreaInterna({ children }) {
@@ -51,6 +52,9 @@ export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.PROD ? '/mills-adesivacao-next' : '/'}>
       <Routes>
+        {/* Demo: tela de apontamento sem precisar de login ou Firestore */}
+        <Route path="/demo" element={<Demo />} />
+
         {/* Acesso por link fixo, sem login: gestor ou técnico em campo */}
         <Route path="/apontamento/:token" element={<Apontamento />} />
         <Route path="/validacao-gestor/:token" element={<ValidacaoGestor />} />
