@@ -34,15 +34,62 @@ export default function ValidacaoGestor() {
     return frotas.filter((f) => f.unidadeId === unidade.id && f.status === STATUS.PENDENTE_VALIDACAO_GESTOR);
   }, [frotas, unidade]);
 
+  // Frotas reprovadas pela analista que o gestor precisa saber
+  const reprovadas = useMemo(() => {
+    if (!unidade) return [];
+    return frotas.filter((f) =>
+      f.unidadeId === unidade.id &&
+      f.status === STATUS.PENDENTE &&
+      f.rejeitadoNivel === 'analista' &&
+      f.motivoRejeicao
+    );
+  }, [frotas, unidade]);
+
   if (erro) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-danger)' }}>{erro}</p>;
   if (!unidade) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
 
   return (
     <div className="page-container" style={{ maxWidth: 560, margin: '0 auto', padding: '1rem' }}>
-      <p style={{ fontSize: 16, fontWeight: 500, margin: '0 0 4px' }}>Confirmar fotos do técnico</p>
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' }}>{unidade.unidade}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div>
+          <p style={{ fontSize: 16, fontWeight: 500, margin: '0 0 4px' }}>Confirmar fotos do técnico</p>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>{unidade.unidade}</p>
+        </div>
+        {reprovadas.length > 0 && (
+          <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 'var(--radius)', background: '#fde8e8', color: 'var(--text-danger)', fontWeight: 500 }}>
+            ⚠ {reprovadas.length} reprovada{reprovadas.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
 
-      {fila.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma foto pendente de confirmação.</p>}
+      {fila.length === 0 && reprovadas.length === 0 && (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma foto pendente de confirmação.</p>
+      )}
+
+      {/* Alertas de rejeição pela analista */}
+      {reprovadas.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-danger)', margin: '0 0 8px' }}>
+            ⚠ {reprovadas.length} frota{reprovadas.length > 1 ? 's' : ''} reprovada{reprovadas.length > 1 ? 's' : ''} pela analista
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {reprovadas.map(f => (
+              <div key={f.id} style={{ border: '0.5px solid var(--border-danger)', borderRadius: 'var(--radius)', padding: '10px 12px', background: '#fff5f5' }}>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 4px' }}>
+                  Interno {f.numeroInterno} · Série {f.numeroSerie}
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-danger)', margin: 0, fontStyle: 'italic' }}>
+                  Motivo: {f.motivoRejeicao}
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                  Reprovado por {f.rejeitadoPor} em {f.dataRejeicao ? new Date(f.dataRejeicao).toLocaleDateString('pt-BR') : '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {fila.map((f) => (

@@ -87,31 +87,46 @@ export default function Apontamento() {
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {minhasFrotas.map((f) => (
+        {minhasFrotas.map((f) => {
+          const reprovado = f.status === STATUS.PENDENTE && f.motivoRejeicao;
+          return (
           <div
             key={f.id}
             onClick={() => f.status === STATUS.PENDENTE && setFrotaAberta(f)}
             style={{
-              border: '0.5px solid var(--border)',
+              border: `0.5px solid ${reprovado ? 'var(--border-danger)' : 'var(--border)'}`,
               borderRadius: 'var(--radius)',
               padding: '10px 12px',
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              flexDirection: 'column',
+              gap: 4,
               cursor: f.status === STATUS.PENDENTE ? 'pointer' : 'default',
+              background: reprovado ? '#fff5f5' : 'transparent',
             }}
           >
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                Interno {f.numeroInterno} · Série {f.numeroSerie}
-              </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  Interno {f.numeroInterno} · Série {f.numeroSerie}
+                </p>
+              </div>
+              <span style={{
+                fontSize: 11, padding: '3px 8px', borderRadius: 'var(--radius)',
+                background: reprovado ? '#fde8e8' : 'var(--surface-1)',
+                color: reprovado ? 'var(--text-danger)' : 'var(--text-secondary)',
+              }}>
+                {reprovado ? '⚠ Reprovado' : STATUS_LABEL[f.status]}
+              </span>
             </div>
-            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 'var(--radius)', background: 'var(--surface-1)', color: 'var(--text-secondary)' }}>
-              {STATUS_LABEL[f.status]}
-            </span>
+            {reprovado && (
+              <p style={{ fontSize: 12, color: 'var(--text-danger)', margin: 0, fontStyle: 'italic' }}>
+                Motivo: {f.motivoRejeicao} — toque para reenviar
+              </p>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {frotaAberta && (

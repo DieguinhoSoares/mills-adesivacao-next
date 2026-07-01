@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     <title>Adesivação Frota NEXT · Mills</title>
+    <script>
+      // Recupera rota salva pelo 404.html e navega para ela
+      var redirect = sessionStorage.getItem('redirect');
+      if (redirect && redirect !== '/') {
+        sessionStorage.removeItem('redirect');
+        window.history.replaceState(null, '', '/mills-adesivacao-next' + redirect);
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
