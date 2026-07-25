@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useFrotas } from '../hooks/useFrotas';
+import { useFrotasContext } from '../contexts/FrotasContext';
 import { ETAPAS, ETAPA_LABEL, ETAPA_CORES, etapaDaFrota, diasDesde } from '../utils/regularizacao';
 
 function EtapaBadge({ etapa, count }) {
@@ -42,7 +42,7 @@ function LinhaDoTempo({ datas, etapaAtual }) {
 }
 
 export default function Cronograma({ usuarioAtual }) {
-  const { frotas, loading, atualizarRegularizacao } = useFrotas();
+  const { frotas, loading, atualizarRegularizacao } = useFrotasContext();
   const [busca, setBusca] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState('');
   const [loteAberto, setLoteAberto] = useState(null);

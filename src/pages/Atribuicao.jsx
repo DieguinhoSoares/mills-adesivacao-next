@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useFrotas } from '../hooks/useFrotas';
+import { useFrotasContext } from '../contexts/FrotasContext';
 import { useUnidades } from '../hooks/useUnidades';
 import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
 
@@ -13,7 +13,7 @@ const MODOS = [
 ];
 
 export default function Atribuicao({ usuarioAtual }) {
-  const { frotas, atribuirUnidade } = useFrotas();
+  const { frotas, atribuirUnidade } = useFrotasContext();
   const { unidades, criarUnidade } = useUnidades();
 
   const [modo, setModo] = useState('pendentes');

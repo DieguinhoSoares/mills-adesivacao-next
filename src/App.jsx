@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
-import { useFrotas } from './hooks/useFrotas';
+import { FrotasProvider, useFrotasContext } from './contexts/FrotasContext';
 import { STATUS } from './utils/statusFlow';
 import { MANUAIS_ADESIVACAO } from './utils/materiais';
 
@@ -33,7 +33,7 @@ function iniciais(email) {
 }
 
 function Sidebar({ user }) {
-  const { frotas } = useFrotas();
+  const { frotas } = useFrotasContext();
   const aguardando = frotas.filter((f) => f.status === STATUS.AGUARDANDO_ATRIBUICAO).length;
   const filaAnalista = frotas.filter((f) => f.status === STATUS.PENDENTE_VALIDACAO_ANALISTA).length;
 
@@ -109,14 +109,16 @@ function Shell({ children }) {
   return (
     <AreaInterna>
       {(user) => (
-        <div className="app-shell">
-          <Sidebar user={user} />
-          <main className="main-content">
-            <div key={location.pathname} className="fade-in">
-              {children(user)}
-            </div>
-          </main>
-        </div>
+        <FrotasProvider>
+          <div className="app-shell">
+            <Sidebar user={user} />
+            <main className="main-content">
+              <div key={location.pathname} className="fade-in">
+                {children(user)}
+              </div>
+            </main>
+          </div>
+        </FrotasProvider>
       )}
     </AreaInterna>
   );

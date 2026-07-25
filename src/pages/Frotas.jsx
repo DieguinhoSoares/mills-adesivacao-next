@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useFrotas } from '../hooks/useFrotas';
+import { useFrotasContext } from '../contexts/FrotasContext';
 import { useUnidades } from '../hooks/useUnidades';
 import { StatusPill } from '../components/StatusPill';
 import { STATUS } from '../utils/statusFlow';
@@ -19,7 +19,7 @@ const thStyle = {
 const tdStyle = { padding: '10px 14px', fontSize: 13 };
 
 export default function Frotas() {
-  const { frotas, loading } = useFrotas();
+  const { frotas, loading } = useFrotasContext();
   const { unidades } = useUnidades();
   const [busca, setBusca] = useState('');
   const [pagina, setPagina] = useState(0);

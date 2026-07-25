@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useFrotas } from '../hooks/useFrotas';
+import { useFrotasContext } from '../contexts/FrotasContext';
 import { useUnidades } from '../hooks/useUnidades';
 import { MetricCard } from '../components/MetricCard';
 import { ProgressBar } from '../components/ProgressBar';
@@ -27,7 +27,7 @@ function isValidado(status) {
 }
 
 export default function Dashboard() {
-  const { frotas, loading: loadingFrotas } = useFrotas();
+  const { frotas, loading: loadingFrotas } = useFrotasContext();
   const { unidades, loading: loadingUnidades } = useUnidades();
   const [path, setPath] = useState([]);
   const navigate = useNavigate();
