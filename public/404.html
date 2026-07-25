@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Adesivação Frota NEXT · Mills</title>
+    <script>
+      // GitHub Pages não tem servidor real: rotas do React Router (ex. /apontamento/:token,
+      // /cronograma) caem aqui quando acessadas direto. Guardamos o caminho pedido e
+      // redirecionamos pro index.html, que devolve a URL certa (ver script em index.html).
+      var base = '/mills-adesivacao-next';
+      var caminho = location.pathname.replace(base, '') + location.search + location.hash;
+      sessionStorage.setItem('redirect', caminho);
+      location.replace(base + '/');
+    </script>
+  </head>
+  <body></body>
+</html>
