@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useUnidades } from '../hooks/useUnidades';
-import { useFrotas } from '../hooks/useFrotas';
+import { useUnidadesContext } from '../contexts/UnidadesContext';
+import { useFrotasContext } from '../contexts/FrotasContext';
 
 // Deriva do config do Vite (vite.config.js `base`) em vez de fixar um domínio,
 // então continua correto se o app for hospedado em outro domínio/subpasta.
@@ -64,8 +64,8 @@ function GerarNovoLinkBotao({ onClick }) {
 }
 
 export default function Links() {
-  const { unidades, loading: loadingUnidades, atualizarUnidade } = useUnidades();
-  const { frotas, loading: loadingFrotas } = useFrotas();
+  const { unidades, loading: loadingUnidades, atualizarUnidade } = useUnidadesContext();
+  const { frotas, loading: loadingFrotas } = useFrotasContext();
   const [busca, setBusca] = useState('');
   const [filtroGrupo, setFiltroGrupo] = useState('');
   const [pagina, setPagina] = useState(0);

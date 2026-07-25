@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useFrotasContext } from '../contexts/FrotasContext';
-import { useUnidades } from '../hooks/useUnidades';
+import { useUnidadesContext } from '../contexts/UnidadesContext';
 import { Lightbox } from '../components/Lightbox';
 import { STATUS } from '../utils/statusFlow';
+import { useUsuarioAtual } from '../App';
 
-export default function ValidacaoAnalista({ usuarioAtual }) {
+export default function ValidacaoAnalista() {
+  const usuarioAtual = useUsuarioAtual();
   const { frotas, validarAnalista, rejeitar } = useFrotasContext();
-  const { unidades } = useUnidades();
+  const { unidades } = useUnidadesContext();
   const [busca, setBusca] = useState('');
   // Apenas um item em modo rejeição por vez
   const [rejeitandoId, setRejeitandoId] = useState(null);

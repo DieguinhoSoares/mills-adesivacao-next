@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useFrotasContext } from '../contexts/FrotasContext';
+import { useUsuarioAtual } from '../App';
 import { ETAPAS, ETAPA_LABEL, ETAPA_CORES, etapaDaFrota, diasDesde } from '../utils/regularizacao';
 
 function EtapaBadge({ etapa, count }) {
@@ -41,7 +42,8 @@ function LinhaDoTempo({ datas, etapaAtual }) {
   );
 }
 
-export default function Cronograma({ usuarioAtual }) {
+export default function Cronograma() {
+  const usuarioAtual = useUsuarioAtual();
   const { frotas, loading, atualizarRegularizacao } = useFrotasContext();
   const [busca, setBusca] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState('');

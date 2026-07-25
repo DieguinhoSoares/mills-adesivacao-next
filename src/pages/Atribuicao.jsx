@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFrotasContext } from '../contexts/FrotasContext';
-import { useUnidades } from '../hooks/useUnidades';
+import { useUnidadesContext } from '../contexts/UnidadesContext';
 import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
+import { useUsuarioAtual } from '../App';
 
 // O apontamento é sempre do técnico — não há mais seletor de responsável.
 const NOVA_UNIDADE_VAZIA = { unidade: '', encarregado: '', responsavelApontamento: 'tecnico' };
@@ -12,9 +13,10 @@ const MODOS = [
   { key: 'lote', label: 'Reatribuição em lote' },
 ];
 
-export default function Atribuicao({ usuarioAtual }) {
+export default function Atribuicao() {
+  const usuarioAtual = useUsuarioAtual();
   const { frotas, atribuirUnidade } = useFrotasContext();
-  const { unidades, criarUnidade } = useUnidades();
+  const { unidades, criarUnidade } = useUnidadesContext();
 
   const [modo, setModo] = useState('pendentes');
   const [busca, setBusca] = useState('');

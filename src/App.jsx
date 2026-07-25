@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation, useOutletContext, Outlet } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { FrotasProvider, useFrotasContext } from './contexts/FrotasContext';
+import { UnidadesProvider } from './contexts/UnidadesContext';
 import { STATUS } from './utils/statusFlow';
 import { MANUAIS_ADESIVACAO } from './utils/materiais';
 
@@ -16,14 +17,10 @@ import Links from './pages/Links';
 import Demo from './pages/Demo';
 import Login from './pages/Login';
 
-function AreaInterna({ children }) {
-  const [user, setUser] = useState(undefined);
-
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  if (user === undefined) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
-  if (!user) return <Login />;
-  return children(user);
+// Telas dentro da área interna pegam o e-mail do usuário logado por aqui,
+// em vez de receber como prop — assim a página não remonta quando o pai muda.
+export function useUsuarioAtual() {
+  return useOutletContext();
 }
 
 function iniciais(email) {
@@ -104,23 +101,31 @@ function Sidebar({ user }) {
   );
 }
 
-function Shell({ children }) {
+// Layout persistente da área interna: monta UMA vez por sessão logada (não a
+// cada navegação), então os listeners de frotas/unidades (Frotas/UnidadesProvider)
+// também ficam abertos uma vez só, em vez de reabrir a cada clique no menu.
+function AreaInternaLayout() {
+  const [user, setUser] = useState(undefined);
   const location = useLocation();
+
+  useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  if (user === undefined) return <p style={{ padding: '1rem', fontSize: 14, color: 'var(--text-secondary)' }}>Carregando…</p>;
+  if (!user) return <Login />;
+
   return (
-    <AreaInterna>
-      {(user) => (
-        <FrotasProvider>
-          <div className="app-shell">
-            <Sidebar user={user} />
-            <main className="main-content">
-              <div key={location.pathname} className="fade-in">
-                {children(user)}
-              </div>
-            </main>
-          </div>
-        </FrotasProvider>
-      )}
-    </AreaInterna>
+    <FrotasProvider>
+      <UnidadesProvider>
+        <div className="app-shell">
+          <Sidebar user={user} />
+          <main className="main-content">
+            <div key={location.pathname} className="fade-in">
+              <Outlet context={user.email} />
+            </div>
+          </main>
+        </div>
+      </UnidadesProvider>
+    </FrotasProvider>
   );
 }
 
@@ -135,12 +140,14 @@ export default function App() {
         <Route path="/apontamento/:token" element={<Apontamento />} />
 
         {/* Área interna, com login: analista de frotas */}
-        <Route path="/" element={<Shell>{() => <Dashboard />}</Shell>} />
-        <Route path="/cronograma" element={<Shell>{(user) => <Cronograma usuarioAtual={user.email} />}</Shell>} />
-        <Route path="/frotas" element={<Shell>{() => <Frotas />}</Shell>} />
-        <Route path="/atribuicao" element={<Shell>{(user) => <Atribuicao usuarioAtual={user.email} />}</Shell>} />
-        <Route path="/validacao" element={<Shell>{(user) => <ValidacaoAnalista usuarioAtual={user.email} />}</Shell>} />
-        <Route path="/links" element={<Shell>{() => <Links />}</Shell>} />
+        <Route element={<AreaInternaLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/cronograma" element={<Cronograma />} />
+          <Route path="/frotas" element={<Frotas />} />
+          <Route path="/atribuicao" element={<Atribuicao />} />
+          <Route path="/validacao" element={<ValidacaoAnalista />} />
+          <Route path="/links" element={<Links />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
