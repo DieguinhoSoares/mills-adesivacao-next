@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useFrotasContext } from '../contexts/FrotasContext';
 import { useUsuarioAtual } from '../App';
+import { STATUS } from '../utils/statusFlow';
 import { ETAPAS, ETAPA_LABEL, ETAPA_CORES, etapaDaFrota, diasDesde } from '../utils/regularizacao';
+
+// Máquina já adesivada e validada não precisa de nenhuma ação de produção/
+// aplicação — não entra na conta do cronograma de regularização.
+function precisaRegularizar(f) {
+  return f.unidadeId && f.status !== STATUS.ADESIVADO;
+}
 
 function EtapaBadge({ etapa, count }) {
   const cor = ETAPA_CORES[etapa];
@@ -53,7 +60,7 @@ export default function Cronograma() {
   const lotes = useMemo(() => {
     const map = new Map();
     frotas
-      .filter((f) => f.unidadeId) // só frotas já atribuídas entram no cronograma
+      .filter(precisaRegularizar)
       .forEach((f) => {
         const key = [f.clienteCT || 'Sem cliente', f.plantaObra || 'Sem planta'].join(' · ');
         if (!map.has(key)) map.set(key, { key, cliente: f.clienteCT, planta: f.plantaObra, frotas: [] });
@@ -86,7 +93,7 @@ export default function Cronograma() {
 
   const totais = useMemo(() => {
     const t = Object.fromEntries(ETAPAS.map((e) => [e, 0]));
-    frotas.filter((f) => f.unidadeId).forEach((f) => { t[etapaDaFrota(f)] += 1; });
+    frotas.filter(precisaRegularizar).forEach((f) => { t[etapaDaFrota(f)] += 1; });
     return t;
   }, [frotas]);
 
