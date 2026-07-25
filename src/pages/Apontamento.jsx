@@ -74,7 +74,8 @@ export default function Apontamento() {
         fecharSheet();
       }, 1500);
     } catch (e) {
-      setErroEnvio('Não foi possível enviar a foto. Verifique sua conexão e tente novamente.');
+      // Mostra o motivo real (temporário, para diagnosticar falhas de envio em campo)
+      setErroEnvio(e?.message ? `Erro ao enviar: ${e.message}` : 'Não foi possível enviar a foto. Verifique sua conexão e tente novamente.');
     } finally {
       setEnviando(false);
     }
