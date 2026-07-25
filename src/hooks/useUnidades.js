@@ -22,7 +22,6 @@ export function useUnidades() {
     const ref = await addDoc(collection(db, 'unidades'), {
       ...novaUnidade,
       tokenApontamento: crypto.randomUUID(),
-      tokenValidacaoGestor: crypto.randomUUID(),
     });
     const criada = { id: ref.id, ...novaUnidade };
     setUnidades((prev) => [...prev, criada]);

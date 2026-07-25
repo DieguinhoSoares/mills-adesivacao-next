@@ -1,18 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFrotas } from '../hooks/useFrotas';
 import { useUnidades } from '../hooks/useUnidades';
 import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
 
-const NOVA_UNIDADE_VAZIA = {
-  unidade: '', gerente: '', coordenador: '', supervisor: '',
-  encarregado: '', tecnico: '', responsavelApontamento: 'encarregado',
-};
+// O apontamento é sempre do técnico — não há mais seletor de responsável.
+const NOVA_UNIDADE_VAZIA = { unidade: '', encarregado: '', responsavelApontamento: 'tecnico' };
 
-// Filtros disponíveis na barra superior
 const MODOS = [
-  { key: 'pendentes',  label: 'Pendentes' },
-  { key: 'todas',      label: 'Todas (reatribuir)' },
-  { key: 'lote',       label: 'Reatribuição em lote' },
+  { key: 'pendentes', label: 'Pendentes' },
+  { key: 'todas', label: 'Todas (reatribuir)' },
+  { key: 'lote', label: 'Reatribuição em lote' },
 ];
 
 export default function Atribuicao({ usuarioAtual }) {
@@ -40,12 +37,14 @@ export default function Atribuicao({ usuarioAtual }) {
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
 
-  // Clientes e gestores únicos para os filtros de lote
+  const [pagina, setPagina] = useState(0);
+  const POR_PAGINA = 50;
+
   const clientesUnicos = useMemo(() => [...new Set(frotas.map(f => f.clienteCT).filter(Boolean))].sort(), [frotas]);
   const unidadeById = useMemo(() => Object.fromEntries(unidades.map(u => [u.id, u])), [unidades]);
   const gestoresUnicos = useMemo(() => [...new Set(unidades.map(u => u.encarregado || u.supervisor || u.coordenador).filter(v => v && v !== '-'))].sort(), [unidades]);
 
-  const lista = useMemo(() => {
+  const listaCompleta = useMemo(() => {
     return frotas
       .filter(f => {
         if (modo === 'pendentes') return f.status === STATUS.AGUARDANDO_ATRIBUICAO;
@@ -59,6 +58,11 @@ export default function Atribuicao({ usuarioAtual }) {
         return u && (u.encarregado === filtroGestor || u.supervisor === filtroGestor || u.coordenador === filtroGestor);
       });
   }, [frotas, modo, busca, filtroCliente, filtroGestor, unidadeById]);
+
+  useEffect(() => { setPagina(0); }, [modo, busca, filtroCliente, filtroGestor]);
+
+  const totalPaginas = Math.max(1, Math.ceil(listaCompleta.length / POR_PAGINA));
+  const lista = listaCompleta.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
 
   const unidadesFiltradas = useMemo(() => {
     if (!buscaUnidade) return unidades.slice(0, 8);
@@ -88,10 +92,10 @@ export default function Atribuicao({ usuarioAtual }) {
   }
 
   function toggleTodas() {
-    if (selecionadas.size === lista.length) {
+    if (selecionadas.size === listaCompleta.length) {
       setSelecionadas(new Set());
     } else {
-      setSelecionadas(new Set(lista.map(f => f.id)));
+      setSelecionadas(new Set(listaCompleta.map(f => f.id)));
     }
   }
 
@@ -111,7 +115,7 @@ export default function Atribuicao({ usuarioAtual }) {
     try {
       const unidadeId = await resolverUnidade();
       await atribuirUnidade(frotaSelecionada.id, {
-        unidadeId, atribuidoPor: usuarioAtual, motivo,
+        unidadeId, unidadeIdAnterior: frotaSelecionada.unidadeId, atribuidoPor: usuarioAtual, motivo,
         statusAtual: frotaSelecionada.status,
       });
       setFrotaSelecionada(null);
@@ -131,7 +135,7 @@ export default function Atribuicao({ usuarioAtual }) {
       const frotasLote = frotas.filter(f => selecionadas.has(f.id));
       for (const f of frotasLote) {
         await atribuirUnidade(f.id, {
-          unidadeId, atribuidoPor: usuarioAtual, motivo,
+          unidadeId, unidadeIdAnterior: f.unidadeId, atribuidoPor: usuarioAtual, motivo,
           statusAtual: f.status,
         });
       }
@@ -155,9 +159,9 @@ export default function Atribuicao({ usuarioAtual }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto', marginBottom: 10 }}>
           {unidadesFiltradas.map(u => (
             <div key={u.id} onClick={() => setUnidadeEscolhida(u)} style={{
-              padding: '8px 10px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13,
+              padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
               background: unidadeEscolhida?.id === u.id ? 'var(--bg-accent)' : 'transparent',
-              color: unidadeEscolhida?.id === u.id ? 'var(--text-accent)' : 'var(--text-primary)',
+              color: unidadeEscolhida?.id === u.id ? 'var(--mills-terracota)' : 'var(--text-primary)',
             }}>
               {u.unidade}
               <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>
@@ -166,35 +170,34 @@ export default function Atribuicao({ usuarioAtual }) {
             </div>
           ))}
         </div>
-        <button style={{ marginBottom: 12 }} onClick={() => setCriandoNova(true)}>Unidade não existe, criar nova</button>
+        <button style={{ marginBottom: 12 }} onClick={() => setCriandoNova(true)}>+ Unidade não existe, criar nova</button>
       </>
     ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-        {['unidade','gerente','coordenador','supervisor','encarregado','tecnico'].map(campo => (
-          <input key={campo} type="text" placeholder={campo.charAt(0).toUpperCase()+campo.slice(1)}
-            value={novaUnidade[campo]} onChange={e => setNovaUnidade({ ...novaUnidade, [campo]: e.target.value })} />
-        ))}
-        <select value={novaUnidade.responsavelApontamento}
-          onChange={e => setNovaUnidade({ ...novaUnidade, responsavelApontamento: e.target.value })}>
-          <option value="encarregado">Responsável pela foto: Encarregado</option>
-          <option value="supervisor">Responsável pela foto: Supervisor</option>
-          <option value="coordenador">Responsável pela foto: Coordenador</option>
-          <option value="tecnico">Responsável pela foto: Técnico</option>
-        </select>
+        <input type="text" placeholder="Nome da unidade"
+          value={novaUnidade.unidade} onChange={e => setNovaUnidade({ ...novaUnidade, unidade: e.target.value })} />
+        <input type="text" placeholder="Encarregado"
+          value={novaUnidade.encarregado} onChange={e => setNovaUnidade({ ...novaUnidade, encarregado: e.target.value })} />
         <button onClick={() => setCriandoNova(false)}>Cancelar, buscar existente</button>
       </div>
     );
   }
 
   return (
-    <div className="page-container" style={{ maxWidth: 760, margin: '0 auto', padding: '1rem' }}>
+    <div className="page-container" style={{ maxWidth: 900, margin: '0 auto' }}>
+      <h1 className="page-title">Atribuição de frotas</h1>
+      <p className="page-subtitle">Vincule cada frota NEXT à unidade responsável pelo apontamento em campo.</p>
 
-      {/* Barra superior */}
+      {/* Barra superior: segmented control + busca */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', background: '#F1EFE6', borderRadius: 10, padding: 4, gap: 2 }}>
           {MODOS.map(m => (
             <button key={m.key} onClick={() => { setModo(m.key); setSelecionadas(new Set()); }}
-              style={{ background: modo === m.key ? 'var(--fill-accent)' : 'transparent', color: modo === m.key ? 'var(--on-accent)' : 'var(--text-primary)', border: '0.5px solid var(--border-strong)' }}>
+              style={{
+                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, padding: '7px 14px',
+                background: modo === m.key ? 'var(--mills-laranja)' : 'transparent',
+                color: modo === m.key ? '#fff' : 'var(--text-secondary)',
+              }}>
               {m.label}
             </button>
           ))}
@@ -218,16 +221,16 @@ export default function Atribuicao({ usuarioAtual }) {
       )}
 
       {/* Cabeçalho de lote */}
-      {modo === 'lote' && lista.length > 0 && (
+      {modo === 'lote' && listaCompleta.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={selecionadas.size === lista.length && lista.length > 0}
+            <input type="checkbox" checked={selecionadas.size === listaCompleta.length && listaCompleta.length > 0}
               onChange={toggleTodas} />
-            Selecionar todas ({lista.length})
+            Selecionar todas ({listaCompleta.length})
           </label>
           {selecionadas.size > 0 && (
             <button onClick={() => { setModalLoteAberto(true); resetModal(); }}
-              style={{ background: 'var(--fill-accent)', color: 'var(--on-accent)', border: 'none' }}>
+              style={{ background: 'var(--mills-laranja)', color: '#fff', border: 'none', fontWeight: 600 }}>
               Reatribuir {selecionadas.size} selecionadas
             </button>
           )}
@@ -239,12 +242,12 @@ export default function Atribuicao({ usuarioAtual }) {
         {lista.map(f => {
           const u = unidadeById[f.unidadeId];
           return (
-            <div key={f.id} className="card-row" style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div key={f.id} className="card card-row" style={{ borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               {modo === 'lote' && (
                 <input type="checkbox" checked={selecionadas.has(f.id)} onChange={() => toggleSelecionada(f.id)} style={{ flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
                   {f.idNext} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· {STATUS_LABEL[f.status]}</span>
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
@@ -270,11 +273,19 @@ export default function Atribuicao({ usuarioAtual }) {
         {lista.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma frota nessa lista.</p>}
       </div>
 
+      {totalPaginas > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 12, fontSize: 13 }}>
+          <button disabled={pagina === 0} onClick={() => setPagina(p => p - 1)}>Anterior</button>
+          <span style={{ color: 'var(--text-muted)' }}>Página {pagina + 1} de {totalPaginas}</span>
+          <button disabled={pagina >= totalPaginas - 1} onClick={() => setPagina(p => p + 1)}>Próxima</button>
+        </div>
+      )}
+
       {/* Modal individual */}
       {frotaSelecionada && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '90%', maxWidth: 480 }}>
-            <p style={{ fontSize: 15, fontWeight: 500, margin: '0 0 2px' }}>{frotaSelecionada.idNext}</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,32,33,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 460 }}>
+            <p style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>{frotaSelecionada.idNext}</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
               {frotaSelecionada.clienteCT} · {frotaSelecionada.plantaObra}
             </p>
@@ -287,7 +298,7 @@ export default function Atribuicao({ usuarioAtual }) {
             {erro && <p style={{ fontSize: 12, color: 'var(--text-danger)', margin: '0 0 10px' }}>{erro}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={{ flex: 1 }} onClick={() => setFrotaSelecionada(null)}>Cancelar</button>
-              <button style={{ flex: 1, background: 'var(--fill-accent)', color: 'var(--on-accent)', border: 'none' }}
+              <button style={{ flex: 1, background: 'var(--mills-laranja)', color: '#fff', border: 'none', fontWeight: 600 }}
                 disabled={salvando} onClick={confirmarIndividual}>
                 {salvando ? 'Salvando…' : 'Confirmar'}
               </button>
@@ -298,9 +309,9 @@ export default function Atribuicao({ usuarioAtual }) {
 
       {/* Modal lote */}
       {modalLoteAberto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '1.25rem', width: '90%', maxWidth: 480 }}>
-            <p style={{ fontSize: 15, fontWeight: 500, margin: '0 0 2px' }}>Reatribuição em lote</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,32,33,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
+          <div className="modal-box" style={{ background: 'var(--surface-2)', borderRadius: 16, padding: 24, width: '90%', maxWidth: 460 }}>
+            <p style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>Reatribuição em lote</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>
               {selecionadas.size} frotas selecionadas serão reatribuídas para a unidade escolhida abaixo.
             </p>
@@ -311,7 +322,7 @@ export default function Atribuicao({ usuarioAtual }) {
             {erro && <p style={{ fontSize: 12, color: 'var(--text-danger)', margin: '0 0 10px' }}>{erro}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={{ flex: 1 }} onClick={() => setModalLoteAberto(false)}>Cancelar</button>
-              <button style={{ flex: 1, background: 'var(--fill-accent)', color: 'var(--on-accent)', border: 'none' }}
+              <button style={{ flex: 1, background: 'var(--mills-laranja)', color: '#fff', border: 'none', fontWeight: 600 }}
                 disabled={salvando} onClick={confirmarLote}>
                 {salvando ? `Salvando ${selecionadas.size} frotas…` : `Confirmar ${selecionadas.size} frotas`}
               </button>

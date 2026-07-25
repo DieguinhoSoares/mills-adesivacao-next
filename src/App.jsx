@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
+import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase';
+import { useFrotas } from './hooks/useFrotas';
+import { STATUS } from './utils/statusFlow';
+import { MANUAIS_ADESIVACAO } from './utils/materiais';
 
 import Apontamento from './pages/Apontamento';
-import ValidacaoGestor from './pages/ValidacaoGestor';
 import ValidacaoAnalista from './pages/ValidacaoAnalista';
 import Atribuicao from './pages/Atribuicao';
+import Cronograma from './pages/Cronograma';
 import Dashboard from './pages/Dashboard';
 import Frotas from './pages/Frotas';
 import Links from './pages/Links';
@@ -23,28 +26,99 @@ function AreaInterna({ children }) {
   return children(user);
 }
 
-function Nav() {
-  const linkStyle = { fontWeight: 500 };
+function iniciais(email) {
+  const nome = (email || '').split('@')[0];
+  const partes = nome.split(/[._-]/).filter(Boolean);
+  return partes.slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
+}
+
+function Sidebar({ user }) {
+  const { frotas } = useFrotas();
+  const aguardando = frotas.filter((f) => f.status === STATUS.AGUARDANDO_ATRIBUICAO).length;
+  const filaAnalista = frotas.filter((f) => f.status === STATUS.PENDENTE_VALIDACAO_ANALISTA).length;
+
+  const itens = [
+    { to: '/', label: 'Dashboard' },
+    { to: '/cronograma', label: 'Cronograma' },
+    { to: '/frotas', label: 'Frotas' },
+    { to: '/atribuicao', label: 'Atribuição', badge: aguardando },
+    { to: '/validacao', label: 'Validação', badge: filaAnalista },
+    { to: '/links', label: 'Links' },
+  ];
+
   return (
-    <div
-      className="nav-bar"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 20,
-        padding: '14px 20px',
-        borderBottom: '0.5px solid var(--border)',
-        fontSize: 13,
-        background: 'var(--surface-2)',
-      }}
-    >
-      <span style={{ color: 'var(--mills-verde-escuro)', fontWeight: 700, fontSize: 14, letterSpacing: -0.3 }}>mills</span>
-      <Link to="/" style={linkStyle}>Dashboard</Link>
-      <Link to="/frotas" style={linkStyle}>Frotas</Link>
-      <Link to="/atribuicao" style={linkStyle}>Atribuição</Link>
-      <Link to="/validacao" style={linkStyle}>Validação</Link>
-      <Link to="/links" style={linkStyle}>Links</Link>
-    </div>
+    <aside className="sidebar">
+      <div className="sidebar-brand" style={{ padding: '0 14px', marginBottom: 20 }}>
+        <span style={{ color: '#fff', fontWeight: 700, fontSize: 18, letterSpacing: -0.3 }}>mills</span>
+        <p style={{ fontSize: 11.5, color: 'var(--mills-verde-claro)', margin: '2px 0 0' }}>Adesivação NEXT</p>
+      </div>
+
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {itens.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === '/'}
+            className={({ isActive }) => `sidebar-link${isActive ? ' ativo' : ''}`}>
+            <span>{item.label}</span>
+            {item.badge > 0 && <span className="sidebar-badge">{item.badge}</span>}
+          </NavLink>
+        ))}
+      </nav>
+
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', margin: '10px 14px 2px' }}>📄 Manuais de aplicação</p>
+      {MANUAIS_ADESIVACAO.map((m) => (
+        <a
+          key={m.url}
+          href={m.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="sidebar-link"
+          style={{ fontSize: 12 }}
+        >
+          <span>{m.label}</span>
+        </a>
+      ))}
+
+      <div className="sidebar-divisor" style={{ borderTop: '0.5px solid rgba(255,255,255,0.12)', margin: '16px 0' }} />
+      <p className="sidebar-secao" style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)', margin: '0 14px 6px' }}>
+        Telas de campo · sem login
+      </p>
+      <span className="sidebar-link sidebar-secao" style={{ cursor: 'default' }}>Apontamento</span>
+
+      <div className="sidebar-footer" style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{
+          width: 30, height: 30, borderRadius: '50%', background: 'var(--mills-verde-claro)',
+          color: 'var(--mills-verde-escuro)', fontSize: 12, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          {iniciais(user?.email)}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 12, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {user?.email}
+          </p>
+          <span onClick={() => signOut(auth)} style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>
+            Sair
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function Shell({ children }) {
+  const location = useLocation();
+  return (
+    <AreaInterna>
+      {(user) => (
+        <div className="app-shell">
+          <Sidebar user={user} />
+          <main className="main-content">
+            <div key={location.pathname} className="fade-in">
+              {children(user)}
+            </div>
+          </main>
+        </div>
+      )}
+    </AreaInterna>
   );
 }
 
@@ -55,56 +129,16 @@ export default function App() {
         {/* Demo: tela de apontamento sem precisar de login ou Firestore */}
         <Route path="/demo" element={<Demo />} />
 
-        {/* Acesso por link fixo, sem login: gestor ou técnico em campo */}
+        {/* Acesso por link fixo, sem login: quem está em campo tira a foto */}
         <Route path="/apontamento/:token" element={<Apontamento />} />
-        <Route path="/validacao-gestor/:token" element={<ValidacaoGestor />} />
 
         {/* Área interna, com login: analista de frotas */}
-        <Route
-          path="/"
-          element={
-            <>
-              <Nav />
-              <AreaInterna>{() => <Dashboard />}</AreaInterna>
-            </>
-          }
-        />
-        <Route
-          path="/frotas"
-          element={
-            <>
-              <Nav />
-              <AreaInterna>{() => <Frotas />}</AreaInterna>
-            </>
-          }
-        />
-        <Route
-          path="/atribuicao"
-          element={
-            <>
-              <Nav />
-              <AreaInterna>{(user) => <Atribuicao usuarioAtual={user.email} />}</AreaInterna>
-            </>
-          }
-        />
-        <Route
-          path="/validacao"
-          element={
-            <>
-              <Nav />
-              <AreaInterna>{(user) => <ValidacaoAnalista usuarioAtual={user.email} />}</AreaInterna>
-            </>
-          }
-        />
-        <Route
-          path="/links"
-          element={
-            <>
-              <Nav />
-              <AreaInterna>{() => <Links />}</AreaInterna>
-            </>
-          }
-        />
+        <Route path="/" element={<Shell>{() => <Dashboard />}</Shell>} />
+        <Route path="/cronograma" element={<Shell>{(user) => <Cronograma usuarioAtual={user.email} />}</Shell>} />
+        <Route path="/frotas" element={<Shell>{() => <Frotas />}</Shell>} />
+        <Route path="/atribuicao" element={<Shell>{(user) => <Atribuicao usuarioAtual={user.email} />}</Shell>} />
+        <Route path="/validacao" element={<Shell>{(user) => <ValidacaoAnalista usuarioAtual={user.email} />}</Shell>} />
+        <Route path="/links" element={<Shell>{() => <Links />}</Shell>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

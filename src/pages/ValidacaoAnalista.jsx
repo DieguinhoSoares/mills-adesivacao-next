@@ -8,7 +8,9 @@ export default function ValidacaoAnalista({ usuarioAtual }) {
   const { frotas, validarAnalista, rejeitar } = useFrotas();
   const { unidades } = useUnidades();
   const [busca, setBusca] = useState('');
-  const [motivoRejeicao, setMotivoRejeicao] = useState({});
+  // Apenas um item em modo rejeição por vez
+  const [rejeitandoId, setRejeitandoId] = useState(null);
+  const [motivo, setMotivo] = useState('');
   const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
   const unidadeById = useMemo(() => Object.fromEntries(unidades.map((u) => [u.id, u])), [unidades]);
@@ -19,12 +21,30 @@ export default function ValidacaoAnalista({ usuarioAtual }) {
       .filter((f) => !busca || `${f.idNext}${f.numeroInterno}${f.numeroSerie}`.toLowerCase().includes(busca.toLowerCase()));
   }, [frotas, busca]);
 
+  function abrirRejeicao(frotaId) {
+    setRejeitandoId(frotaId);
+    setMotivo('');
+  }
+
+  async function confirmarRejeicao(f) {
+    await rejeitar(f.id, {
+      statusAtual: f.status,
+      motivo: motivo.trim() || 'Não informado',
+      rejeitadoPor: usuarioAtual,
+    });
+    setRejeitandoId(null);
+    setMotivo('');
+  }
+
   return (
-    <div className="page-container" style={{ maxWidth: 880, margin: '0 auto', padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-        <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
-          Pendentes de validação <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({fila.length})</span>
-        </p>
+    <div className="page-container" style={{ maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h1 className="page-title" style={{ margin: 0 }}>
+            Fila de validação final <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 15 }}>({fila.length})</span>
+          </h1>
+          <p className="page-subtitle" style={{ margin: '4px 0 0' }}>Confira a foto de cada máquina antes de concluir a adesivação.</p>
+        </div>
         <input
           type="text"
           placeholder="Buscar nº interno, série ou ID Next"
@@ -37,28 +57,34 @@ export default function ValidacaoAnalista({ usuarioAtual }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {fila.map((f) => {
           const unidade = unidadeById[f.unidadeId];
+          const emRejeicao = rejeitandoId === f.id;
           return (
             <div
               key={f.id}
-              className="card-row"
-              style={{ background: 'var(--surface-2)', border: '0.5px solid var(--border)', borderRadius: 12, padding: '1rem 1.25rem', display: 'flex', gap: 16, alignItems: 'flex-start' }}
+              className="card card-row"
+              style={{ padding: '18px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
             >
-              {/* Espaço reservado para a foto coletada em campo: grande o suficiente
-                  para o analista realmente analisar o item adesivado, com zoom ao clicar. */}
+              {/* Foto grande o suficiente para o analista analisar, com zoom ao clicar */}
               {f.fotoEvidenciaURL ? (
                 <img
                   src={f.fotoEvidenciaURL}
                   alt={`Evidência ${f.idNext}`}
                   onClick={() => setFotoAmpliada(f.fotoEvidenciaURL)}
-                  style={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0, cursor: 'zoom-in' }}
+                  style={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }}
                 />
               ) : (
-                <div style={{ width: 160, height: 160, borderRadius: 'var(--radius)', background: 'var(--surface-1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
-                  Sem foto
+                <div style={{
+                  width: 160, height: 160, borderRadius: 10, flexShrink: 0,
+                  background: 'linear-gradient(135deg, #E3EEFB, #D9F5EA)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, color: 'var(--text-secondary)', gap: 4, textAlign: 'center', padding: 8,
+                }}>
+                  <span>Foto de evidência</span>
+                  <span style={{ fontWeight: 600 }}>{f.idNext}</span>
                 </div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
                   {f.idNext} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· interno {f.numeroInterno} · série {f.numeroSerie}</span>
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>{f.clienteCT} · {f.plantaObra}</p>
@@ -66,37 +92,47 @@ export default function ValidacaoAnalista({ usuarioAtual }) {
                   Apontado por {f.apontadoPor} {unidade ? `(${unidade.unidade})` : ''}
                 </p>
                 {f.observacaoApontamento && (
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 8px', fontStyle: 'italic' }}>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px', fontStyle: 'italic' }}>
                     "{f.observacaoApontamento}"
                   </p>
                 )}
-                <input
-                  type="text"
-                  placeholder="Motivo da rejeição (se aplicável)"
-                  value={motivoRejeicao[f.id] || ''}
-                  onChange={(e) => setMotivoRejeicao((prev) => ({ ...prev, [f.id]: e.target.value }))}
-                  style={{ width: '100%', marginBottom: 8 }}
-                />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    style={{ color: 'var(--text-danger)', borderColor: 'var(--border-danger)' }}
-                    onClick={() =>
-                      rejeitar(f.id, {
-                        statusAtual: f.status,
-                        motivo: motivoRejeicao[f.id] || 'Não informado',
-                        rejeitadoPor: usuarioAtual,
-                      })
-                    }
-                  >
-                    Rejeitar
-                  </button>
-                  <button
-                    style={{ background: 'var(--fill-success)', color: 'var(--on-success)', border: 'none' }}
-                    onClick={() => validarAnalista(f.id, { validadoPor: usuarioAtual, unidade })}
-                  >
-                    Validar
-                  </button>
-                </div>
+
+                {!emRejeicao ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      style={{ borderColor: 'var(--border-danger)', color: 'var(--text-danger)' }}
+                      onClick={() => abrirRejeicao(f.id)}
+                    >
+                      Rejeitar
+                    </button>
+                    <button
+                      style={{ background: 'var(--mills-verde-escuro)', color: 'var(--mills-verde-claro)', border: 'none', fontWeight: 600 }}
+                      onClick={() => validarAnalista(f.id, { validadoPor: usuarioAtual })}
+                    >
+                      Validar
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Motivo da rejeição"
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setRejeitandoId(null)}>Cancelar</button>
+                      <button
+                        style={{ background: 'var(--text-danger)', color: '#fff', border: 'none', fontWeight: 600 }}
+                        onClick={() => confirmarRejeicao(f)}
+                      >
+                        Confirmar rejeição
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

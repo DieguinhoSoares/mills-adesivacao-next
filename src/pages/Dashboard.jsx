@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFrotas } from '../hooks/useFrotas';
 import { useUnidades } from '../hooks/useUnidades';
 import { MetricCard } from '../components/MetricCard';
 import { ProgressBar } from '../components/ProgressBar';
-import { STATUS, STATUS_LABEL } from '../utils/statusFlow';
+import { StatusPill } from '../components/StatusPill';
+import { STATUS } from '../utils/statusFlow';
 
 const CLIENTE_LEVEL = 'clientePlanta';
 // Sequência completa: Grupo → Gerente → Coordenador → Supervisor → Encarregado → Cliente/Planta → Máquina
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const { frotas, loading: loadingFrotas } = useFrotas();
   const { unidades, loading: loadingUnidades } = useUnidades();
   const [path, setPath] = useState([]);
+  const navigate = useNavigate();
 
   const unidadeById = useMemo(() => Object.fromEntries(unidades.map((u) => [u.id, u])), [unidades]);
 
@@ -67,7 +70,9 @@ export default function Dashboard() {
       if (isApontado(f.status)) e.apontado += 1;
       if (isValidado(f.status)) e.validado += 1;
     });
-    return Array.from(map.values()).sort((a, b) => b.validado / b.total - a.validado / a.total);
+    return Array.from(map.values()).sort(
+      (a, b) => (b.total ? b.validado / b.total : 0) - (a.total ? a.validado / a.total : 0)
+    );
   }
 
   const levelIdx = path.length;
@@ -87,23 +92,26 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="page-container" style={{ maxWidth: 760, margin: '0 auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12 }}>
+    <div className="page-container" style={{ maxWidth: 920, margin: '0 auto' }}>
+      <h1 className="page-title">Progresso da adesivação</h1>
+      <p className="page-subtitle">Acompanhe a cascata Gerente → Coordenador → Supervisor → Encarregado → Cliente/Planta.</p>
+
+      <div className="metric-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 14, marginBottom: 20 }}>
         <MetricCard label="Frotas NEXT" value={totalAll} />
-        <MetricCard label="Apontado" value={totalAll ? `${Math.round((apontAll / totalAll) * 100)}%` : '0%'} color="var(--text-accent)" />
-        <MetricCard label="Validado" value={totalAll ? `${Math.round((validAll / totalAll) * 100)}%` : '0%'} color="var(--text-success)" />
-        <MetricCard label="Aguardando atribuição" value={semVinculo} color="var(--text-muted)" />
+        <MetricCard label="Apontado %" value={totalAll ? `${Math.round((apontAll / totalAll) * 100)}%` : '0%'} color="var(--st-analista-fg)" />
+        <MetricCard label="Validado %" value={totalAll ? `${Math.round((validAll / totalAll) * 100)}%` : '0%'} color="var(--st-adesivado-fg)" />
+        <MetricCard label="Aguardando atribuição" value={semVinculo} color="var(--text-muted)" onClick={() => navigate('/atribuicao')} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          <span style={{ cursor: 'pointer', color: 'var(--text-accent)' }} onClick={() => setPath([])}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>
+          <span style={{ cursor: 'pointer', color: 'var(--mills-terracota)' }} onClick={() => setPath([])}>
             Todos
           </span>
           {path.map((p, i) => (
             <span key={p}>
-              {' › '}
-              <span style={{ cursor: 'pointer', color: 'var(--text-accent)' }} onClick={() => setPath(path.slice(0, i + 1))}>
+              <span style={{ color: '#ACAA9C' }}>{' › '}</span>
+              <span style={{ cursor: 'pointer', color: 'var(--mills-terracota)' }} onClick={() => setPath(path.slice(0, i + 1))}>
                 {p}
               </span>
             </span>
@@ -111,10 +119,10 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: '#85B7EB' }} /> Apontado
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: '#85B7EB' }} /> Apontado
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: '#1D9E75' }} /> Validado
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: '#1D9E75' }} /> Validado
           </span>
         </div>
       </div>
@@ -127,14 +135,15 @@ export default function Dashboard() {
             return (
               <div
                 key={r.name}
+                className="card"
                 onClick={() => setPath([...path, r.name])}
-                style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', cursor: 'pointer' }}
+                style={{ borderRadius: 10, padding: '14px 18px', cursor: 'pointer' }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
+                  <span style={{ fontSize: 14.5, fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.name} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 12 }}>· {LEVEL_LABELS[level]}</span>
                   </span>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     {r.total} máquinas · {pctValidado}% validado
                   </span>
                 </div>
@@ -150,25 +159,14 @@ export default function Dashboard() {
             Máquinas de {path[path.length - 1]}:
           </p>
           {maquinas.map((f) => (
-            <div key={f.id} className="card-row" style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div key={f.id} className="card card-row" style={{ borderRadius: 10, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{f.idNext}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{f.idNext}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
                   Interno {f.numeroInterno || '—'} · Série {f.numeroSerie || '—'}
                 </p>
               </div>
-              <span
-                style={{
-                  fontSize: 11,
-                  padding: '3px 8px',
-                  borderRadius: 'var(--radius)',
-                  background: isValidado(f.status) ? 'var(--bg-success)' : isApontado(f.status) ? 'var(--bg-accent)' : 'var(--surface-1)',
-                  color: isValidado(f.status) ? 'var(--text-success)' : isApontado(f.status) ? 'var(--text-accent)' : 'var(--text-secondary)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {STATUS_LABEL[f.status]}
-              </span>
+              <StatusPill status={f.status} reprovado={f.status === STATUS.PENDENTE && !!f.motivoRejeicao} />
             </div>
           ))}
           {maquinas.length === 0 && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhuma máquina nesse recorte.</p>}
