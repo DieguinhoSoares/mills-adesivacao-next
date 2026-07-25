@@ -18,16 +18,18 @@ export function useFrotas() {
   }, []);
 
   async function apontar(frotaId, { fotoURL, apontadoPor, observacao }) {
+    // Restrito a exatamente estes 5 campos: é o único update sem login (via
+    // token de unidade) e a regra do Firestore só libera esse conjunto quando
+    // status == 'pendente'. Não inclui motivoRejeicao/rejeitadoPor/dataRejeicao
+    // aqui — a regra não os libera nessa etapa, e mexer neles (mesmo pondo
+    // null num campo que nunca existiu) já é o suficiente pra Firestore negar
+    // a gravação inteira com "permissão insuficiente".
     await updateDoc(doc(db, 'frotas_next', frotaId), {
       status: proximoStatus(STATUS.PENDENTE),
       fotoEvidenciaURL: fotoURL,
       apontadoPor,
       observacaoApontamento: observacao || null,
       dataApontamento: new Date().toISOString(),
-      // Limpa rejeição anterior ao reenviar
-      motivoRejeicao: null,
-      rejeitadoPor: null,
-      dataRejeicao: null,
     });
   }
 
