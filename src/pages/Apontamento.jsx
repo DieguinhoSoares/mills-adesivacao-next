@@ -184,21 +184,37 @@ export default function Apontamento() {
                 </p>
 
                 {!fotoSelecionada ? (
-                  <label style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    gap: 4, border: '1.5px dashed var(--border-strong)', borderRadius: 12,
-                    padding: '28px 12px', marginBottom: 12, cursor: 'pointer', textAlign: 'center',
-                  }}>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>Tirar foto da máquina adesivada</span>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Toque para abrir a câmera</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => setFotoSelecionada(e.target.files?.[0] || null)}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                    <label style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, border: '1.5px dashed var(--border-strong)', borderRadius: 12,
+                      padding: '22px 10px', cursor: 'pointer', textAlign: 'center',
+                    }}>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>📷 Tirar foto</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Abre a câmera</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => setFotoSelecionada(e.target.files?.[0] || null)}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    <label style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, border: '1.5px dashed var(--border-strong)', borderRadius: 12,
+                      padding: '22px 10px', cursor: 'pointer', textAlign: 'center',
+                    }}>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>🖼️ Da galeria</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Foto já tirada antes</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setFotoSelecionada(e.target.files?.[0] || null)}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </div>
                 ) : (
                   <div style={{ position: 'relative', marginBottom: 12 }}>
                     <img
