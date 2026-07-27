@@ -4,6 +4,7 @@ import { useUnidadesContext } from '../contexts/UnidadesContext';
 import { Lightbox } from '../components/Lightbox';
 import { STATUS } from '../utils/statusFlow';
 import { useUsuarioAtual } from '../App';
+import { urlMiniatura } from '../utils/cloudinaryUrl';
 
 export default function ValidacaoAnalista() {
   const usuarioAtual = useUsuarioAtual();
@@ -66,11 +67,13 @@ export default function ValidacaoAnalista() {
               className="card card-row"
               style={{ padding: '18px 20px', display: 'flex', gap: 16, alignItems: 'flex-start' }}
             >
-              {/* Foto grande o suficiente para o analista analisar, com zoom ao clicar */}
+              {/* Miniatura no tamanho certo (economiza banda); a foto ampliada/original
+                  só carrega ao clicar, dentro do Lightbox. */}
               {f.fotoEvidenciaURL ? (
                 <img
-                  src={f.fotoEvidenciaURL}
+                  src={urlMiniatura(f.fotoEvidenciaURL)}
                   alt={`Evidência ${f.idNext}`}
+                  loading="lazy"
                   onClick={() => setFotoAmpliada(f.fotoEvidenciaURL)}
                   style={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }}
                 />
