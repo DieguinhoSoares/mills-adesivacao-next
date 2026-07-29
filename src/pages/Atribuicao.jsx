@@ -16,7 +16,7 @@ const MODOS = [
 export default function Atribuicao() {
   const usuarioAtual = useUsuarioAtual();
   const { frotas, atribuirUnidade } = useFrotasContext();
-  const { unidades, criarUnidade } = useUnidadesContext();
+  const { unidades, criarUnidade, atualizarUnidade } = useUnidadesContext();
 
   const [modo, setModo] = useState('pendentes');
   const [busca, setBusca] = useState('');
@@ -38,6 +38,12 @@ export default function Atribuicao() {
   const [modalLoteAberto, setModalLoteAberto] = useState(false);
   const [erro, setErro] = useState(null);
   const [salvando, setSalvando] = useState(false);
+
+  // Edição do gestor de uma unidade já existente (direto na busca, sem
+  // precisar criar unidade nova nem mexer nas frotas).
+  const [editandoUnidadeId, setEditandoUnidadeId] = useState(null);
+  const [edicaoGestor, setEdicaoGestor] = useState('');
+  const [salvandoGestor, setSalvandoGestor] = useState(false);
 
   const [pagina, setPagina] = useState(0);
   const POR_PAGINA = 50;
@@ -78,6 +84,25 @@ export default function Atribuicao() {
     setCriandoNova(false);
     setNovaUnidade(NOVA_UNIDADE_VAZIA);
     setErro(null);
+    setEditandoUnidadeId(null);
+  }
+
+  function abrirEdicaoGestor(u, e) {
+    e.stopPropagation(); // não seleciona a unidade ao clicar em "Editar"
+    setEditandoUnidadeId(u.id);
+    setEdicaoGestor(u.encarregado || '');
+  }
+
+  async function salvarGestor(unidadeId) {
+    setSalvandoGestor(true);
+    try {
+      await atualizarUnidade(unidadeId, { encarregado: edicaoGestor.trim() });
+      setEditandoUnidadeId(null);
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setSalvandoGestor(false);
+    }
   }
 
   function abrirIndividual(frota) {
@@ -158,17 +183,51 @@ export default function Atribuicao() {
       <>
         <input type="text" placeholder="Buscar unidade" value={buscaUnidade}
           onChange={e => setBuscaUnidade(e.target.value)} style={{ width: '100%', marginBottom: 8 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto', marginBottom: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
           {unidadesFiltradas.map(u => (
-            <div key={u.id} onClick={() => setUnidadeEscolhida(u)} style={{
-              padding: '8px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+            <div key={u.id} style={{
+              padding: '8px 10px', borderRadius: 8, fontSize: 13,
               background: unidadeEscolhida?.id === u.id ? 'var(--bg-accent)' : 'transparent',
-              color: unidadeEscolhida?.id === u.id ? 'var(--mills-terracota)' : 'var(--text-primary)',
             }}>
-              {u.unidade}
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>
-                {[u.gerente, u.coordenador, u.encarregado].filter(v => v && v !== '-').join(' › ')}
-              </span>
+              <div onClick={() => setUnidadeEscolhida(u)} style={{
+                cursor: 'pointer',
+                color: unidadeEscolhida?.id === u.id ? 'var(--mills-terracota)' : 'var(--text-primary)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ minWidth: 0 }}>
+                  {u.unidade}
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>
+                    {[u.gerente, u.coordenador, u.encarregado].filter(v => v && v !== '-').join(' › ')}
+                  </span>
+                </span>
+                <button
+                  onClick={(e) => abrirEdicaoGestor(u, e)}
+                  style={{ fontSize: 11, padding: '2px 8px', flexShrink: 0, color: 'var(--text-secondary)' }}
+                >
+                  Editar gestor
+                </button>
+              </div>
+
+              {editandoUnidadeId === u.id && (
+                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Nome do gestor (encarregado)"
+                    value={edicaoGestor}
+                    onChange={(e) => setEdicaoGestor(e.target.value)}
+                    style={{ flex: 1, fontSize: 12 }}
+                    autoFocus
+                  />
+                  <button onClick={() => setEditandoUnidadeId(null)} style={{ fontSize: 12, padding: '4px 10px' }}>Cancelar</button>
+                  <button
+                    onClick={() => salvarGestor(u.id)}
+                    disabled={salvandoGestor}
+                    style={{ fontSize: 12, padding: '4px 10px', background: 'var(--mills-laranja)', color: '#fff', border: 'none', fontWeight: 600 }}
+                  >
+                    {salvandoGestor ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
