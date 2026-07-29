@@ -6,6 +6,7 @@ import { FrotasProvider, useFrotasContext } from './contexts/FrotasContext';
 import { UnidadesProvider } from './contexts/UnidadesContext';
 import { STATUS } from './utils/statusFlow';
 import { MANUAIS_ADESIVACAO } from './utils/materiais';
+import { AlterarSenhaModal } from './components/AlterarSenhaModal';
 
 import Apontamento from './pages/Apontamento';
 import ValidacaoAnalista from './pages/ValidacaoAnalista';
@@ -33,6 +34,7 @@ function Sidebar({ user }) {
   const { frotas } = useFrotasContext();
   const aguardando = frotas.filter((f) => f.status === STATUS.AGUARDANDO_ATRIBUICAO).length;
   const filaAnalista = frotas.filter((f) => f.status === STATUS.PENDENTE_VALIDACAO_ANALISTA).length;
+  const [alterandoSenha, setAlterandoSenha] = useState(false);
 
   const itens = [
     { to: '/', label: 'Dashboard' },
@@ -92,11 +94,19 @@ function Sidebar({ user }) {
           <p style={{ fontSize: 12, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {user?.email}
           </p>
-          <span onClick={() => signOut(auth)} style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>
-            Sair
+          <span style={{ display: 'flex', gap: 8 }}>
+            <span onClick={() => setAlterandoSenha(true)} style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>
+              Alterar senha
+            </span>
+            <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span>
+            <span onClick={() => signOut(auth)} style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }}>
+              Sair
+            </span>
           </span>
         </div>
       </div>
+
+      {alterandoSenha && <AlterarSenhaModal onClose={() => setAlterandoSenha(false)} />}
     </aside>
   );
 }
